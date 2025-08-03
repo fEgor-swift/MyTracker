@@ -2,6 +2,14 @@ import UIKit
 
 final class HabitEditorViewController: UIViewController {
 
+    var didCreateNewTracker: ((Tracker) -> Void)?
+    
+    private let scrollView: UIScrollView = {
+        let scroll = UIScrollView()
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        return scroll
+    }()
+    
     private let headerLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -21,6 +29,7 @@ final class HabitEditorViewController: UIViewController {
         field.font = UIFont.systemFont(ofSize: 17)
         field.clearButtonMode = .whileEditing
         field.setLeftPaddingPoints(16)
+        field.returnKeyType = .done
         return field
     }()
 
@@ -155,17 +164,42 @@ final class HabitEditorViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .white
-        assembleViews()
+        setupViews()
         applyConstraints()
         configureActions()
         setupFormValidation()
+        
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(hideKeyboard))
+        view.addGestureRecognizer(tapGesture)
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardWillShow),
+            name: UIResponder.keyboardWillShowNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardWillHide),
+            name: UIResponder.keyboardWillHideNotification,
+            object: nil
+        )
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        NotificationCenter.default.removeObserver(self)
     }
 
-    private func assembleViews() {
-        view.addSubview(headerLabel)
-        view.addSubview(habitNameField)
-        view.addSubview(optionsContainer)
-        view.addSubview(actionButtonsStack)
+    private func setupViews() {
+        view.addSubview(scrollView)
+        scrollView.addSubview(headerLabel)
+        scrollView.addSubview(habitNameField)
+        scrollView.addSubview(optionsContainer)
+        scrollView.addSubview(actionButtonsStack)
 
         actionButtonsStack.addArrangedSubview(cancelBtn)
         actionButtonsStack.addArrangedSubview(confirmBtn)
@@ -189,6 +223,11 @@ final class HabitEditorViewController: UIViewController {
 
     private func applyConstraints() {
         NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            
             headerLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 27),
             headerLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
 
@@ -240,7 +279,9 @@ final class HabitEditorViewController: UIViewController {
         cancelBtn.addTarget(self, action: #selector(cancelPressed), for: .touchUpInside)
         scheduleTapButton.addTarget(self, action: #selector(openScheduleSelector), for: .touchUpInside)
         categoryTapButton.addTarget(self, action: #selector(openCategorySelection), for: .touchUpInside)
-        habitNameField.addTarget(self, action: #selector(habitNameChanged), for: .editingChanged)
+        
+        habitNameField.addTarget(self, action: #selector(habitNameDidChange), for: .editingChanged)
+        confirmBtn.addTarget(self, action: #selector(confirmButtonPressed), for: .touchUpInside)
     }
 
     private func setupFormValidation() {
@@ -248,7 +289,7 @@ final class HabitEditorViewController: UIViewController {
     }
 
     private func updateConfirmButtonState() {
-        let isNameValid = !(habitNameField.text?.isEmpty ?? true)
+        let isNameValid = !(habitNameField.text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
         let isScheduleValid = !daysSelected.isEmpty
         let isCategoryValid = trackerCategory != nil
         
@@ -286,9 +327,61 @@ final class HabitEditorViewController: UIViewController {
 
     @objc private func openCategorySelection() {
     }
-
-    @objc private func habitNameChanged() {
-        updateConfirmButtonState()
+    
+    @objc private func habitNameDidChange() {
+        refreshConfirmButtonState()
+    }
+    
+    private func refreshConfirmButtonState() {
+        let isNameEmpty = habitNameField.text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true
+        let hasDays = !daysSelected.isEmpty
+        confirmBtn.isEnabled = !isNameEmpty && hasDays
+        confirmBtn.backgroundColor = confirmBtn.isEnabled ? UIColor(named: "ypBlack") : UIColor(named: "ypGray")
+    }
+    
+    @objc private func confirmButtonPressed() {
+        guard
+            let trimmedName = habitNameField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !trimmedName.isEmpty,
+            !daysSelected.isEmpty
+        else {
+            return
+        }
+        
+        let newTracker = Tracker(
+            id: UUID(),
+            name: trimmedName,
+            color: "ColorSection15",
+            emoji: "🐱",
+            schedule: daysSelected.map { $0.rawValue }
+        )
+        
+        didCreateNewTracker?(newTracker)
+        dismiss(animated: true)
+    }
+    
+    // MARK: - Keyboard Handling
+    @objc private func keyboardWillShow(notification: NSNotification) {
+        guard let userInfo = notification.userInfo,
+              let keyboardFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+        
+        let contentInset = UIEdgeInsets(
+            top: 0,
+            left: 0,
+            bottom: keyboardFrame.height + 20,
+            right: 0
+        )
+        scrollView.contentInset = contentInset
+        scrollView.scrollIndicatorInsets = contentInset
+    }
+    
+    @objc private func keyboardWillHide(notification: NSNotification) {
+        scrollView.contentInset = .zero
+        scrollView.scrollIndicatorInsets = .zero
+    }
+    
+    @objc private func hideKeyboard() {
+        view.endEditing(true)
     }
 }
 

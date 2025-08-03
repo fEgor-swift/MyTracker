@@ -1,7 +1,9 @@
 import UIKit
 
 final class HabitsViewController: UIViewController {
-    var categories: [TrackerCategory] = []
+    var categories: [TrackerCategory] = [
+        TrackerCategory(title: "Привычки", trackers: [])
+    ]
     var completedTrackers: [TrackerRecord] = []
     private var filteredCategories: [TrackerCategory] = []
     private var selectedDate = Date()
@@ -9,7 +11,7 @@ final class HabitsViewController: UIViewController {
     private let createButton: UIButton = {
         let btn = UIButton()
         btn.translatesAutoresizingMaskIntoConstraints = false
-        btn.setImage(UIImage(named: "ButtonIcon"), for: .normal)
+        btn.setImage(UIImage(named: "ButtonIcon"), for: .normal) // <-- Оригинальное название
         return btn
     }()
     
@@ -32,6 +34,7 @@ final class HabitsViewController: UIViewController {
         let field = UITextField()
         field.translatesAutoresizingMaskIntoConstraints = false
         field.placeholder = "Поиск"
+        field.backgroundColor = UIColor(hex: "#767680", alpha: 0.12)
         field.font = .systemFont(ofSize: 17)
         field.tintColor = UIColor(named: "ypGray")
         field.layer.cornerRadius = 10
@@ -106,6 +109,11 @@ final class HabitsViewController: UIViewController {
         collectionView.dataSource = self
         collectionView.delegate = self
         collectionView.register(TrackerCardCell.self, forCellWithReuseIdentifier: TrackerCardCell.reuseIdentifier)
+        collectionView.register(
+            TrackerSectionHeaderView.self,
+            forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
+            withReuseIdentifier: TrackerSectionHeaderView.reuseID
+        )
         
         datePicker.addTarget(self, action: #selector(datePickerValueChanged(_:)), for: .valueChanged)
         filterTrackers(for: selectedDate)
@@ -178,6 +186,18 @@ final class HabitsViewController: UIViewController {
     @objc private func didTapCreateButton() {
         let vc = HabitEditorViewController()
         vc.modalPresentationStyle = .automatic
+        vc.didCreateNewTracker = { [weak self] tracker in
+            guard let self else { return }
+
+            if let index = self.categories.firstIndex(where: { $0.title == "Привычки" }) {
+                var updated = self.categories[index]
+                updated.trackers.append(tracker)
+                self.categories[index] = updated
+            } else {
+                self.categories.append(TrackerCategory(title: "Привычки", trackers: [tracker]))
+            }
+            self.filterTrackers(for: self.selectedDate)
+        }
         present(vc, animated: true)
     }
 }
@@ -228,6 +248,25 @@ extension HabitsViewController: UICollectionViewDataSource {
 
         return cell
     }
+    
+    func collectionView(
+        _ collectionView: UICollectionView,
+        viewForSupplementaryElementOfKind kind: String,
+        at indexPath: IndexPath
+    ) -> UICollectionReusableView {
+        guard kind == UICollectionView.elementKindSectionHeader,
+              let header = collectionView.dequeueReusableSupplementaryView(
+                ofKind: kind,
+                withReuseIdentifier: TrackerSectionHeaderView.reuseID,
+                for: indexPath
+              ) as? TrackerSectionHeaderView else {
+            return UICollectionReusableView()
+        }
+
+        let category = filteredCategories[indexPath.section]
+        header.setupTitle(with: category.title)
+        return header
+    }
 }
 
 extension HabitsViewController: UICollectionViewDelegateFlowLayout {
@@ -236,5 +275,13 @@ extension HabitsViewController: UICollectionViewDelegateFlowLayout {
                        sizeForItemAt indexPath: IndexPath) -> CGSize {
         let width = (collectionView.bounds.width - 8) / 2
         return CGSize(width: width, height: 148)
+    }
+    
+    func collectionView(
+        _ collectionView: UICollectionView,
+        layout collectionViewLayout: UICollectionViewLayout,
+        referenceSizeForHeaderInSection section: Int
+    ) -> CGSize {
+        return CGSize(width: collectionView.bounds.width, height: 32)
     }
 }

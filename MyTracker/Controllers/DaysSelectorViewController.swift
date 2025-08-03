@@ -27,7 +27,7 @@ final class DaysSelectorViewController: UIViewController {
         btn.translatesAutoresizingMaskIntoConstraints = false
         btn.setTitle("Готово", for: .normal)
         btn.setTitleColor(.white, for: .normal)
-        btn.backgroundColor = UIColor(named: "YPBlack") ?? .black
+        btn.backgroundColor = UIColor(named: "ypBlack") ?? .black
         btn.layer.cornerRadius = 16
         btn.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
         return btn
