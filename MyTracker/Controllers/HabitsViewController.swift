@@ -11,7 +11,7 @@ final class HabitsViewController: UIViewController {
     private let createButton: UIButton = {
         let btn = UIButton()
         btn.translatesAutoresizingMaskIntoConstraints = false
-        btn.setImage(UIImage(named: "ButtonIcon"), for: .normal) // <-- Оригинальное название
+        btn.setImage(UIImage(named: "ButtonIcon"), for: .normal)
         return btn
     }()
     
